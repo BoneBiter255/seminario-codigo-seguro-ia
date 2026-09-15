@@ -223,8 +223,16 @@ def run_triage_layer(
 ) -> tuple[dict[str, TriageVerdict], UsoTokens]:
     capa = TriageLayer(raiz=raiz, modelo=modelo, usar_ia=usar_ia)
     veredictos: dict[str, TriageVerdict] = {}
+    total = len(findings)
     for i, f in enumerate(findings, 1):
         etiqueta = "IA" if capa.usar_ia else "heuristica"
-        print(f"[triaje {etiqueta}] {i}/{len(findings)}  {f.id}  {f.rule_id}")
-        veredictos[f.id] = capa.triage(f)
+        # flush=True para que el progreso aparezca en tiempo real durante la demo,
+        # sin quedarse atrapado en el buffer mientras el modelo responde.
+        print(f"[triaje {etiqueta}] {i}/{total}  {f.id}  {f.rule_id} ...", flush=True)
+        v = capa.triage(f)
+        veredictos[f.id] = v
+        print(
+            f"    -> veredicto: {v.veredicto}  (confianza {v.confianza:.2f}, {v.prioridad})",
+            flush=True,
+        )
     return veredictos, capa.uso
