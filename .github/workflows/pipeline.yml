@@ -1,0 +1,54 @@
+name: Revision de codigo seguro (REVIA)
+
+# Integra el pipeline en CI (diapositiva 13). En cada push o PR:
+#   1. levanta el banco de pruebas vulnerable,
+#   2. corre el pipeline con la capa de verificacion contra ese objetivo vivo,
+#   3. ejecuta la suite de pruebas,
+#   4. publica el reporte auditable como artefacto de la ejecucion.
+#
+# El triaje corre en modo baseline (--sin-ia) por defecto para que CI sea
+# reproducible y no dependa de secretos. Para activar el triaje con Claude,
+# define el secreto ANTHROPIC_API_KEY en el repositorio y quita --sin-ia.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalar el pipeline
+        run: pip install -e ./pipeline pytest
+
+      - name: Levantar el banco de pruebas vulnerable
+        run: |
+          python target/mock/run_target.py --port 8081 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8081/api/orders -H "Authorization: Bearer token-ana" && break
+            sleep 0.3
+          done
+
+      - name: Ejecutar el pipeline con verificacion y metricas
+        run: |
+          python -m revia.pipeline --sin-ia --con-verificacion --evaluar \
+            --base-url http://127.0.0.1:8081 --salida out
+
+      - name: Pruebas
+        run: pytest pipeline/tests -q
+
+      - name: Publicar el reporte auditable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-revia
+          path: out/

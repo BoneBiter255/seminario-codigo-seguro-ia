@@ -1,0 +1,145 @@
+# Reglas deterministas para microservicios Java/Spring.
+#
+# El conjunto mezcla a proposito reglas precisas (ruido_esperado: bajo) con
+# reglas amplias (ruido_esperado: alto). Las amplias existen porque asi se
+# comporta el SAST real: prefiere sobre-reportar a omitir. Filtrarlas sin
+# perder las precisas es exactamente lo que mide el experimento.
+#
+# Tipos de regla:
+#   presencia          -> el patron aparece  => hallazgo
+#   ausencia_en_metodo -> el patron ancla aparece en un metodo Y ninguno de los
+#                         patrones de `requiere` esta presente en ese mismo
+#                         metodo => hallazgo. Modela fallos por OMISION, que es
+#                         como se ven casi todos los fallos de autorizacion.
+
+version: 1
+
+reglas:
+  - id: java.spring.idor-sin-verificacion-propiedad
+    titulo: "Endpoint con identificador de recurso sin verificacion de propiedad"
+    cwe: CWE-639
+    severidad: CRITICAL
+    tipo: ausencia_en_metodo
+    archivos: '\.java$'
+    patron: '@(?:Get|Put|Patch|Delete|Post)Mapping\(\s*"[^"]*\{\w*[Ii]d\}'
+    requiere:
+      - '@PreAuthorize'
+      - '@PostAuthorize'
+      - '[Oo]wner\w*\(\)\s*\.\s*equals'
+      - 'equals\(\s*[\w.]*[Oo]wner'
+      - 'hasPermission'
+      - '(?:assert|check|verificar)(?:Ownership|Propiedad|Acceso)'
+    mensaje: >-
+      El metodo recibe un identificador de recurso desde la ruta y lo usa sin comparar
+      nunca el propietario del recurso contra la identidad del llamante. Autenticar no
+      es autorizar: cualquier usuario valido puede iterar identificadores ajenos.
+    ruido_esperado: bajo
+
+  - id: java.spring.confianza-en-cabecera-interna
+    titulo: "Control de acceso basado en una cabecera que controla el llamante"
+    cwe: CWE-290
+    severidad: HIGH
+    tipo: presencia
+    archivos: '\.java$'
+    patron: '"(?:true|1)"\.equals\(\s*\w*(?:[Ii]nternal|[Tt]rusted|[Aa]dmin)\w*\s*\)'
+    mensaje: >-
+      La decision de autorizacion depende de una cabecera HTTP que el cliente puede
+      falsificar. Si el endpoint es alcanzable desde fuera de la malla de servicios,
+      la barrera es una convencion, no un control.
+    ruido_esperado: bajo
+
+  - id: java.sqli.concatenacion-de-consulta
+    titulo: "Consulta SQL construida por concatenacion de cadenas"
+    cwe: CWE-89
+    severidad: HIGH
+    tipo: presencia
+    archivos: '\.java$'
+    patron: '"\s*(?:SELECT|INSERT|UPDATE|DELETE)[^"]*"\s*\+'
+    mensaje: >-
+      La consulta se arma concatenando valores en lugar de usar parametros vinculados.
+      Si alguno de esos valores proviene del usuario, es inyeccion SQL.
+    ruido_esperado: medio
+
+  - id: java.crypto.hash-debil
+    titulo: "Algoritmo de hash criptograficamente roto"
+    cwe: CWE-327
+    severidad: MEDIUM
+    tipo: presencia
+    archivos: '\.java$'
+    patron: 'MessageDigest\.getInstance\(\s*"(?:MD5|SHA-?1)"'
+    mensaje: >-
+      MD5 y SHA-1 tienen colisiones practicas. No sirven para integridad ni para
+      derivar identificadores que se traten como secretos.
+    ruido_esperado: bajo
+
+  - id: java.secreto-embebido
+    titulo: "Posible secreto embebido en el codigo fuente"
+    cwe: CWE-798
+    severidad: HIGH
+    tipo: presencia
+    archivos: '\.java$'
+    patron: '(?i)(?:secret|token|password|passwd|api_?key)\w*\s*=\s*"[^"]{8,}"'
+    mensaje: >-
+      Hay una cadena larga asignada a una variable con nombre de credencial. Si es un
+      secreto real, queda en el historial de git y en cada artefacto compilado.
+    ruido_esperado: alto
+
+  - id: java.random-inseguro
+    titulo: "Generador pseudoaleatorio no criptografico"
+    cwe: CWE-330
+    severidad: MEDIUM
+    tipo: presencia
+    archivos: '\.java$'
+    patron: 'new\s+Random\s*\('
+    mensaje: >-
+      java.util.Random es predecible a partir de unas pocas salidas. Es un fallo solo
+      si el valor generado cumple una funcion de seguridad (token, nonce, id de sesion).
+    ruido_esperado: alto
+
+  - id: java.log.dato-potencialmente-sensible
+    titulo: "Registro de datos potencialmente sensibles"
+    cwe: CWE-532
+    severidad: LOW
+    tipo: presencia
+    archivos: '\.java$'
+    patron: 'LOG(?:GER)?\.(?:info|debug|trace)\([^;]*(?:caller|token|user|password|email|documento)'
+    mensaje: >-
+      La linea de log interpola un valor que podria ser identificador personal o
+      credencial. Depende por completo de cual sea el valor concreto.
+    ruido_esperado: alto
+
+  - id: java.ssrf.url-construida-por-concatenacion
+    titulo: "Peticion saliente con URL construida por concatenacion"
+    cwe: CWE-918
+    severidad: MEDIUM
+    tipo: presencia
+    archivos: '\.java$'
+    patron: 'restTemplate\.(?:exchange|getForObject|getForEntity|postForObject)\(\s*\w+\s*\+'
+    mensaje: >-
+      La URL de destino se arma concatenando. Es SSRF solo si el atacante controla el
+      host o puede escapar del path; si solo controla un segmento saneado, no lo es.
+    ruido_esperado: alto
+
+  - id: java.deserializacion-insegura
+    titulo: "Deserializacion nativa de Java sobre datos no confiables"
+    cwe: CWE-502
+    severidad: CRITICAL
+    tipo: presencia
+    archivos: '\.java$'
+    patron: 'new\s+ObjectInputStream\s*\('
+    mensaje: >-
+      ObjectInputStream sobre datos no confiables permite ejecucion de codigo mediante
+      cadenas de gadgets.
+    ruido_esperado: bajo
+
+  - id: java.inyeccion-de-comandos
+    titulo: "Ejecucion de comando del sistema operativo"
+    cwe: CWE-78
+    severidad: CRITICAL
+    tipo: presencia
+    archivos: '\.java$'
+    patron: 'Runtime\.getRuntime\(\)\.exec\(|new\s+ProcessBuilder\s*\('
+    mensaje: >-
+      Se invoca un proceso del sistema. Si algun argumento viene del usuario sin
+      validar, es inyeccion de comandos.
+    ruido_esperado: medio

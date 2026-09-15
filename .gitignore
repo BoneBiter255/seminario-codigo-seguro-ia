@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Salida del pipeline
+out/
+
+# Java / Maven
+target/*/target/
+*.class
+
+# Secretos: nunca subir credenciales
+.env
+*.key
+
+# IDE / SO
+.idea/
+.vscode/
+Thumbs.db

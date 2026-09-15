@@ -1,0 +1,95 @@
+# Verdad de terreno del banco de pruebas.
+#
+# Cada entrada etiqueta un hallazgo esperado por (regla, archivo) con su
+# clasificacion real, decidida por revision humana. Es el patron contra el que
+# se calculan precision, recall y F1, y contra el que se mide la caida de falsos
+# positivos del triaje.
+#
+# Campos:
+#   etiqueta:      verdadero_positivo | falso_positivo
+#   explotable:    si existe una PoC que lo demuestra en runtime (solo aplica a TP)
+#   cwe:           para agrupar metricas por familia
+#   nota:          justificacion de la etiqueta
+#
+# La clave de emparejamiento es (rule_id, archivo). Se etiqueta a ese nivel -y no
+# por linea- para que el dataset no se rompa cada vez que el codigo del banco de
+# pruebas se reordena.
+
+entradas:
+  - rule_id: java.spring.idor-sin-verificacion-propiedad
+    archivo: order-service/src/main/java/com/seminario/order/OrderController.java
+    etiqueta: verdadero_positivo
+    explotable: true
+    cwe: CWE-639
+    nota: >-
+      IDOR cross-service real. getOrder usa el orderId de la ruta sin comparar
+      ownerId contra el llamante y propaga la PII del propietario ajeno.
+
+  - rule_id: java.spring.idor-sin-verificacion-propiedad
+    archivo: user-service/src/main/java/com/seminario/user/InternalUserController.java
+    etiqueta: verdadero_positivo
+    explotable: true
+    cwe: CWE-639
+    nota: >-
+      El endpoint interno tampoco verifica propiedad: expone cualquier userId a
+      quien logre invocarlo. Es el mismo defecto por omision visto desde el otro
+      servicio de la cadena.
+
+  - rule_id: java.spring.confianza-en-cabecera-interna
+    archivo: user-service/src/main/java/com/seminario/user/InternalUserController.java
+    etiqueta: verdadero_positivo
+    explotable: true
+    cwe: CWE-290
+    nota: >-
+      La unica barrera de /internal/users es X-Internal-Call, que el llamante
+      controla. Segunda mitad de la cadena de exfiltracion.
+
+  - rule_id: java.sqli.concatenacion-de-consulta
+    archivo: order-service/src/main/java/com/seminario/order/OrderRepository.java
+    etiqueta: verdadero_positivo
+    explotable: false
+    cwe: CWE-89
+    nota: >-
+      Concatenacion real de SQL, pero el banco de pruebas no tiene motor SQL, asi
+      que no es explotable en runtime. Caso clave: verdadero positivo NO explotable.
+
+  - rule_id: java.crypto.hash-debil
+    archivo: order-service/src/main/java/com/seminario/order/AuthService.java
+    etiqueta: verdadero_positivo
+    explotable: false
+    cwe: CWE-327
+    nota: MD5 real usado para huella de token. Debilidad genuina, dificil de "explotar" como demo.
+
+  - rule_id: java.secreto-embebido
+    archivo: order-service/src/main/java/com/seminario/order/AuthService.java
+    etiqueta: verdadero_positivo
+    explotable: false
+    cwe: CWE-798
+    nota: INTERNAL_API_TOKEN es un secreto embebido real en el codigo fuente.
+
+  - rule_id: java.random-inseguro
+    archivo: order-service/src/main/java/com/seminario/order/OrderController.java
+    etiqueta: falso_positivo
+    explotable: false
+    cwe: CWE-330
+    nota: >-
+      Random se usa solo para un id de correlacion de trazas, sin funcion de
+      seguridad. La regla es ruidosa a proposito; el triaje debe descartarlo.
+
+  - rule_id: java.ssrf.url-construida-por-concatenacion
+    archivo: order-service/src/main/java/com/seminario/order/UserClient.java
+    etiqueta: falso_positivo
+    explotable: false
+    cwe: CWE-918
+    nota: >-
+      La URL base es de configuracion y el segmento concatenado es un id interno,
+      no una entrada de atacante que permita cambiar de host. Falso positivo.
+
+  - rule_id: java.log.dato-potencialmente-sensible
+    archivo: order-service/src/main/java/com/seminario/order/OrderController.java
+    etiqueta: falso_positivo
+    explotable: false
+    cwe: CWE-532
+    nota: >-
+      Se registra el id de usuario y un correlacion, no credenciales ni PII
+      sensible. Hallazgo de bajo valor que el triaje deberia degradar.
