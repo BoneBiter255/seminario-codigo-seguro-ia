@@ -5,9 +5,6 @@
 > con un modelo de lenguaje y una **capa de verificación** que adjunta una prueba
 > de concepto reproducible a cada hallazgo confirmado.
 
-> 🎬 **¿Vas a presentarlo?** Sigue la guía súper simple: **[docs/demo.md](docs/demo.md)**.
-> Son 3 dobles clic: `VER-EL-ATAQUE.bat`, `DEMO-CON-IA.bat` (o `DEMO-SIN-IA.bat`) y abrir `out/reporte.md`.
-
 ## El problema en una frase
 
 Los veredictos de seguridad producidos por IA no son verificables ni auditables:
