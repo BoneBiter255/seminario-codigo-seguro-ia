@@ -199,3 +199,28 @@ def test_cli_baseline_termina_bien():
     )
     assert proc.returncode == 0, proc.stderr
     assert "METRICAS DE EVALUACION" in proc.stdout
+
+
+def test_triaje_llm_especializado_supera_80_porciento_acierto(objetivo_vivo):
+    """Verifica que el triaje con el motor LLM especializado logra acierto F1 >= 0.80."""
+    findings = run_deterministic_layer(OBJETIVO, REGLAS, usar_semgrep=False)
+    triajes, _ = run_triage_layer(findings, OBJETIVO, proveedor="specialized", usar_ia=True)
+    objetivo = ObjetivoEjecucion(
+        base_url=objetivo_vivo,
+        tokens_prueba={"atacante": "token-ana", "recurso_victima": "ord-9",
+                       "marcador_victima": "u-2002", "recurso_victima_interno": "u-2002"},
+    )
+    verificaciones = run_verification_layer(findings, triajes, objetivo)
+
+    revisados = []
+    for f in findings:
+        rf = ReviewedFinding(finding=f, triaje=triajes.get(f.id), verificacion=verificaciones.get(f.id))
+        rf.resolver_estado()
+        revisados.append(rf)
+
+    ev = evaluar(revisados, GroundTruth(DATASET))
+    assert ev.pipeline.f1 >= 0.80, f"F1 score {ev.pipeline.f1} deberia ser >= 0.80"
+    assert ev.pipeline.precision >= 0.80, f"Precision {ev.pipeline.precision} deberia ser >= 0.80"
+    assert ev.pipeline.recall >= 0.80, f"Recall {ev.pipeline.recall} deberia ser >= 0.80"
+    assert ev.pipeline.fp == 0, "Los falsos positivos deben reducirse a cero"
+
