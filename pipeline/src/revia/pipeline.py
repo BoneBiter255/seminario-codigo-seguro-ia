@@ -46,6 +46,7 @@ def ejecutar(
     con_verificacion: bool,
     base_url: str,
     modelo: str,
+    proveedor: str,
     usar_semgrep: bool,
     dataset: Path | None,
 ) -> PipelineReport:
@@ -59,7 +60,7 @@ def ejecutar(
 
     # -- Capa 2: triaje --------------------------------------------------------
     print("\n== Capa de triaje ==")
-    triajes, uso = run_triage_layer(findings, objetivo, modelo=modelo, usar_ia=usar_ia)
+    triajes, uso = run_triage_layer(findings, objetivo, modelo=modelo, proveedor=proveedor, usar_ia=usar_ia)
 
     # -- Capa 3: verificacion --------------------------------------------------
     verificaciones: dict = {}
@@ -85,7 +86,7 @@ def ejecutar(
     reporte = PipelineReport(
         objetivo=str(objetivo),
         generado_en=generado,
-        modelo_triaje=modelo if usar_ia else None,
+        modelo_triaje=f"{proveedor}:{modelo}" if usar_ia else None,
         hallazgos=revisados,
         duracion_segundos=time.perf_counter() - inicio,
         tokens_entrada=uso.entrada,
@@ -114,7 +115,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reglas", type=Path, default=repo / "pipeline" / "rules" / "java-spring.yml")
     parser.add_argument("--salida", type=Path, default=repo / "out")
     parser.add_argument("--dataset", type=Path, default=repo / "dataset" / "ground-truth.yml")
-    parser.add_argument("--modelo", default=MODELO_POR_DEFECTO)
+    parser.add_argument("--modelo", default=MODELO_POR_DEFECTO, help="Nombre del modelo LLM a utilizar")
+    parser.add_argument("--proveedor", default="auto", choices=["auto", "specialized", "gemini", "groq", "ollama", "claude"], help="Proveedor de LLM (default: auto)")
     parser.add_argument("--base-url", default="http://127.0.0.1:8081", help="URL del objetivo vivo para las PoC")
     parser.add_argument("--sin-ia", action="store_true", help="Usa el baseline heuristico en vez del modelo")
     parser.add_argument("--con-verificacion", action="store_true", help="Ejecuta las PoC contra el objetivo vivo")
@@ -130,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         con_verificacion=args.con_verificacion,
         base_url=args.base_url,
         modelo=args.modelo,
+        proveedor=args.proveedor,
         usar_semgrep=args.con_semgrep,
         dataset=args.dataset if args.evaluar else None,
     )
@@ -138,3 +141,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
