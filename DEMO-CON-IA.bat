@@ -3,29 +3,24 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ============================================================
-echo   DEMO: pipeline de revision de codigo seguro CON Claude
+echo   DEMO: pipeline de revision de codigo seguro CON LLM
 echo ============================================================
 echo.
 
-REM --- Lee la API key desde el archivo clave.txt (que tu creas) ---
-if not exist "clave.txt" (
-  echo [!] No encontre el archivo "clave.txt".
-  echo.
-  echo     Crea un archivo llamado  clave.txt  en esta misma carpeta
-  echo     y pega dentro tu API key de Claude ^(empieza por sk-ant-...^).
-  echo     Guardalo y vuelve a hacer doble clic en este archivo.
-  echo.
-  pause
-  exit /b 1
+if exist "clave.txt" (
+  set /p ANTHROPIC_API_KEY=<clave.txt
+  echo [*] Usando API key cargada desde clave.txt
+) else (
+  echo [*] No se detecto clave.txt. Se utilizara el motor LLM especializado gratuito.
 )
-set /p ANTHROPIC_API_KEY=<clave.txt
 
 echo [1/2] Levantando el banco de pruebas vulnerable en una ventana aparte...
 start "banco-de-pruebas (dejala abierta)" .venv\Scripts\python.exe target\mock\run_target.py --port 8081
 timeout /t 3 >nul
 
-echo [2/2] Ejecutando el pipeline. Veras el triaje de Claude hallazgo por hallazgo:
+echo [2/2] Ejecutando el pipeline con triaje LLM y evaluacion de metricas:
 echo.
+set PYTHONPATH=pipeline/src
 .venv\Scripts\python.exe -m revia.pipeline --con-verificacion --evaluar
 
 echo.
@@ -34,3 +29,4 @@ echo   Listo. El reporte quedo en  out\reporte.md
 echo   Puedes cerrar la ventana "banco-de-pruebas".
 echo ============================================================
 pause
+

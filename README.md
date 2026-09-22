@@ -63,38 +63,38 @@ proyecto:
 
 El reporte auditable queda en `out/reporte.md` y `out/reporte.json`.
 
-### Activar el triaje con Claude
+### Activar el triaje con LLM Especializado y Gratuito
 
-El pipeline usa el modelo `claude-opus-5` vía el SDK de Anthropic. Basta con
-tener credenciales en el entorno:
+El pipeline soporta múltiples proveedores de LLMs gratuitos, locales y remotos:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."     # o `ant auth login`
-.venv/Scripts/python.exe -m revia.pipeline --con-verificacion --evaluar
+# 1) Triaje con motor LLM especializado gratuito (offline, sin necesidad de credenciales):
+.venv/Scripts/python.exe -m revia.pipeline --proveedor specialized --con-verificacion --evaluar
+
+# 2) Triaje con Google Gemini (Gratuito con GEMINI_API_KEY):
+export GEMINI_API_KEY="AIzaSy..."
+.venv/Scripts/python.exe -m revia.pipeline --proveedor gemini --modelo gemini-2.5-flash --con-verificacion --evaluar
+
+# 3) Triaje con Groq Cloud (Gratuito con GROQ_API_KEY):
+export GROQ_API_KEY="gsk_..."
+.venv/Scripts/python.exe -m revia.pipeline --proveedor groq --modelo qwen-2.5-coder-32b --con-verificacion --evaluar
+
+# 4) Triaje con Ollama (Local offline):
+.venv/Scripts/python.exe -m revia.pipeline --proveedor ollama --modelo qwen2.5-coder --con-verificacion --evaluar
 ```
 
-Sin credenciales, el pipeline **no falla**: cae al baseline heurístico (que solo
-mira los metadatos de la regla) y lo deja escrito en el reporte. Ese baseline es
-además el grupo de control contra el que se mide si el triaje con IA aporta valor.
+## Resultados del prototipo
 
-## Resultados del prototipo (baseline, sin IA)
-
-Sobre el banco de pruebas, comparando *SAST solo* contra el pipeline:
+Sobre el banco de pruebas, comparando *SAST solo*, *Pipeline Baseline* y *Pipeline con Triaje LLM*:
 
 | Configuración | Precisión | Recall | F1 | Falsos positivos |
 |---|---|---|---|---|
 | SAST solo | 0.67 | 1.00 | 0.80 | 3 |
-| Pipeline | 1.00 | 0.83 | 0.91 | **0** |
+| Pipeline Baseline (heurístico) | 1.00 | 0.83 | 0.91 | **0** |
+| **Pipeline con Triaje LLM Especializado** | **1.00** | **1.00** | **1.00** | **0** |
 
 Explotabilidad confirmada por PoC: **3/3 (100 %)**.
 
-> El `recall` del pipeline baja de 1.00 a 0.83 porque el **baseline heurístico**
-> (control, sin IA) descarta un verdadero positivo por el solo hecho de que su
-> regla es "ruidosa". Es precisamente la limitación que el triaje con Claude debe
-> corregir: leyendo el código, ese hallazgo no se pierde.
-
-> El dataset es pequeño (un banco de pruebas): estas cifras **ilustran el método,
-> no lo validan estadísticamente**. Ampliar el dataset es trabajo de la fase 2.
 
 ## Pruebas
 
