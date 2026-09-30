@@ -23,7 +23,7 @@ from pathlib import Path
 
 from .evaluation.metrics import GroundTruth, evaluar, formatear
 from .layers.deterministic import run_deterministic_layer
-from .layers.triage import MODELO_POR_DEFECTO, run_triage_layer
+from .layers.triage import PROVEEDORES, run_triage_layer
 from .layers.verification import ObjetivoEjecucion, run_verification_layer
 from .models import PipelineReport, ReviewedFinding
 from .report.render import escribir_reportes
@@ -45,7 +45,7 @@ def ejecutar(
     usar_ia: bool,
     con_verificacion: bool,
     base_url: str,
-    modelo: str,
+    modelo: str | None,
     proveedor: str,
     usar_semgrep: bool,
     dataset: Path | None,
@@ -60,7 +60,7 @@ def ejecutar(
 
     # -- Capa 2: triaje --------------------------------------------------------
     print("\n== Capa de triaje ==")
-    triajes, uso = run_triage_layer(findings, objetivo, modelo=modelo, proveedor=proveedor, usar_ia=usar_ia)
+    triajes, uso, etiqueta_triaje = run_triage_layer(findings, objetivo, modelo=modelo, proveedor=proveedor, usar_ia=usar_ia)
 
     # -- Capa 3: verificacion --------------------------------------------------
     verificaciones: dict = {}
@@ -86,7 +86,7 @@ def ejecutar(
     reporte = PipelineReport(
         objetivo=str(objetivo),
         generado_en=generado,
-        modelo_triaje=f"{proveedor}:{modelo}" if usar_ia else None,
+        modelo_triaje=etiqueta_triaje if usar_ia else None,
         hallazgos=revisados,
         duracion_segundos=time.perf_counter() - inicio,
         tokens_entrada=uso.entrada,
@@ -115,8 +115,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reglas", type=Path, default=repo / "pipeline" / "rules" / "java-spring.yml")
     parser.add_argument("--salida", type=Path, default=repo / "out")
     parser.add_argument("--dataset", type=Path, default=repo / "dataset" / "ground-truth.yml")
-    parser.add_argument("--modelo", default=MODELO_POR_DEFECTO, help="Nombre del modelo LLM a utilizar")
-    parser.add_argument("--proveedor", default="auto", choices=["auto", "specialized", "gemini", "groq", "ollama", "claude"], help="Proveedor de LLM (default: auto)")
+    parser.add_argument("--modelo", default=None, help="Modelo LLM (por defecto, el recomendado para el proveedor)")
+    parser.add_argument("--proveedor", default="auto", choices=PROVEEDORES, help="Proveedor de LLM (auto: el primero disponible)")
     parser.add_argument("--base-url", default="http://127.0.0.1:8081", help="URL del objetivo vivo para las PoC")
     parser.add_argument("--sin-ia", action="store_true", help="Usa el baseline heuristico en vez del modelo")
     parser.add_argument("--con-verificacion", action="store_true", help="Ejecuta las PoC contra el objetivo vivo")
@@ -141,4 +141,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

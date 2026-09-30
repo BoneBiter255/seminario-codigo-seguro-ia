@@ -11,7 +11,9 @@ if exist "clave.txt" (
   set /p ANTHROPIC_API_KEY=<clave.txt
   echo [*] Usando API key cargada desde clave.txt
 ) else (
-  echo [*] No se detecto clave.txt. Se utilizara el motor LLM especializado gratuito.
+  echo [*] No se detecto clave.txt. Se usara un LLM gratuito: Ollama local
+  echo     ^(si esta corriendo^) o Gemini/Groq si hay GEMINI_API_KEY / GROQ_API_KEY.
+  echo     Si no hay ninguno disponible, el pipeline lo avisa y usa el baseline.
 )
 
 echo [1/2] Levantando el banco de pruebas vulnerable en una ventana aparte...
@@ -29,4 +31,3 @@ echo   Listo. El reporte quedo en  out\reporte.md
 echo   Puedes cerrar la ventana "banco-de-pruebas".
 echo ============================================================
 pause
-

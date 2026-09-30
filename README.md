@@ -26,7 +26,7 @@ Ninguna capa por sí sola es de fiar, así que el pipeline las encadena y hace q
   un adaptador opcional a Semgrep. Sobre-reporta a propósito; es la fuente de
   cobertura. Detecta el IDOR por *ausencia* de la comprobación de propiedad, no
   por una línea peligrosa.
-- **Triaje con LLM (Claude)** — lee el código real de cada hallazgo y emite una
+- **Triaje con LLM** (Ollama local, Gemini, Groq o Claude) — lee el código real de cada hallazgo y emite una
   **hipótesis** estructurada (verdadero/falso positivo/incierto, impacto,
   estrategia de PoC, corrección). Trata el código revisado como dato hostil para
   resistir *prompt injection* embebido.
@@ -63,38 +63,63 @@ proyecto:
 
 El reporte auditable queda en `out/reporte.md` y `out/reporte.json`.
 
-### Activar el triaje con LLM Especializado y Gratuito
+### Demo completa (un doble clic)
 
-El pipeline soporta múltiples proveedores de LLMs gratuitos, locales y remotos:
+`DEMO-COMPLETA.bat` (o `python -m revia.demo`) despliega el banco de pruebas y
+recorre cada componente paso a paso: el ataque en vivo, la capa determinista, el
+triaje **sin IA vs con LLM gratuito**, las PoC de verificación, las métricas
+comparadas y el reporte. Usa `--sin-pausas` para correrla de corrido.
+
+### Activar el triaje con un LLM gratuito
+
+Todos los proveedores reciben el mismo prompt y el mismo esquema de salida
+(`TriageVerdict`). Con `--proveedor auto` (por defecto) se usa el primero
+disponible: Gemini → Groq → Claude (si hay key) → Ollama local.
 
 ```bash
-# 1) Triaje con motor LLM especializado gratuito (offline, sin necesidad de credenciales):
-.venv/Scripts/python.exe -m revia.pipeline --proveedor specialized --con-verificacion --evaluar
+# Ollama: local, gratis y sin API key (recomendado para la demo)
+ollama pull qwen2.5-coder:7b
+.venv/Scripts/python.exe -m revia.pipeline --proveedor ollama --con-verificacion --evaluar
 
-# 2) Triaje con Google Gemini (Gratuito con GEMINI_API_KEY):
-export GEMINI_API_KEY="AIzaSy..."
-.venv/Scripts/python.exe -m revia.pipeline --proveedor gemini --modelo gemini-2.5-flash --con-verificacion --evaluar
+# Google Gemini (tier gratuito): pip install google-genai
+export GEMINI_API_KEY="..."
+.venv/Scripts/python.exe -m revia.pipeline --proveedor gemini --con-verificacion --evaluar
 
-# 3) Triaje con Groq Cloud (Gratuito con GROQ_API_KEY):
-export GROQ_API_KEY="gsk_..."
-.venv/Scripts/python.exe -m revia.pipeline --proveedor groq --modelo qwen-2.5-coder-32b --con-verificacion --evaluar
+# Groq (tier gratuito): pip install groq
+export GROQ_API_KEY="..."
+.venv/Scripts/python.exe -m revia.pipeline --proveedor groq --con-verificacion --evaluar
 
-# 4) Triaje con Ollama (Local offline):
-.venv/Scripts/python.exe -m revia.pipeline --proveedor ollama --modelo qwen2.5-coder --con-verificacion --evaluar
+# Claude (de pago)
+export ANTHROPIC_API_KEY="sk-ant-..."
+.venv/Scripts/python.exe -m revia.pipeline --proveedor claude --con-verificacion --evaluar
 ```
+
+Si no hay ningún proveedor, o si una llamada falla, el pipeline **no falla ni
+inventa**: ese hallazgo cae al baseline heurístico, queda marcado como
+`[degradado a heuristica]` en el razonamiento y el reporte indica cuántos se
+degradaron. Así una cifra de "triaje con IA" nunca esconde respuestas que no dio
+el modelo. El baseline es además el grupo de control contra el que se mide si el
+LLM aporta valor.
 
 ## Resultados del prototipo
 
-Sobre el banco de pruebas, comparando *SAST solo*, *Pipeline Baseline* y *Pipeline con Triaje LLM*:
+Sobre el banco de pruebas, comparando *SAST solo* contra el pipeline:
 
 | Configuración | Precisión | Recall | F1 | Falsos positivos |
 |---|---|---|---|---|
 | SAST solo | 0.67 | 1.00 | 0.80 | 3 |
-| Pipeline Baseline (heurístico) | 1.00 | 0.83 | 0.91 | **0** |
-| **Pipeline con Triaje LLM Especializado** | **1.00** | **1.00** | **1.00** | **0** |
+| Pipeline + baseline sin IA | 1.00 | 0.83 | 0.91 | **0** |
+| Pipeline + LLM gratuito (Ollama `qwen2.5-coder:7b`) | _pendiente de medir_ | | | |
 
 Explotabilidad confirmada por PoC: **3/3 (100 %)**.
 
+> El baseline sin IA pierde recall (0.83) porque descarta un verdadero positivo
+> (`java.secreto-embebido`) solo porque su regla está declarada como "ruidosa".
+> Es la limitación que el triaje con LLM debe corregir leyendo el código.
+
+> El dataset es pequeño (un banco de pruebas de 9 hallazgos): estas cifras
+> **ilustran el método, no lo validan estadísticamente**. Ampliar el dataset es
+> trabajo de la fase 2.
 
 ## Pruebas
 
@@ -114,11 +139,12 @@ seminario-codigo-seguro-ia/
 │  │  ├─ models.py           # contrato de datos entre capas
 │  │  ├─ layers/
 │  │  │  ├─ deterministic.py # capa 1: motor de reglas + Semgrep
-│  │  │  ├─ triage.py        # capa 2: triaje con Claude (salida estructurada)
+│  │  │  ├─ triage.py        # capa 2: triaje con LLM (Ollama/Gemini/Groq/Claude)
 │  │  │  └─ verification.py  # capa 3: PoC contra el objetivo vivo
 │  │  ├─ evaluation/metrics.py
 │  │  ├─ report/render.py
-│  │  └─ pipeline.py         # CLI que une las tres capas
+│  │  ├─ pipeline.py         # CLI que une las tres capas
+│  │  └─ demo.py             # demo guiada paso a paso (DEMO-COMPLETA.bat)
 │  ├─ rules/java-spring.yml  # reglas deterministas
 │  └─ tests/
 ├─ target/                   # banco de pruebas vulnerable

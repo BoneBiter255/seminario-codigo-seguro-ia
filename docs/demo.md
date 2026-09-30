@@ -21,16 +21,23 @@ Esa **prueba** es lo nuevo y lo importante de mi trabajo.
 
 1. Abre la carpeta del proyecto en el **Escritorio**:
    `seminario-codigo-seguro-ia`
-2. ¿Quieres mostrar la parte con **Inteligencia Artificial (Claude)**? Necesitas una clave:
-   - Entra a **https://console.anthropic.com** → **API Keys** → **Create Key** → copia la clave (empieza por `sk-ant-...`).
-   - Crea un archivo llamado **`clave.txt`** dentro de la carpeta del proyecto y **pega ahí la clave**. Guarda.
-   - Si NO tienes clave, no pasa nada: usa la versión **SIN IA**, que funciona igual de bien para la demostración.
+2. Para la parte con **Inteligencia Artificial gratis**, usa **Ollama** (corre en tu PC, sin clave):
+   - Instálalo desde **https://ollama.com** y, en una terminal, ejecuta una sola vez:
+     `ollama pull qwen2.5-coder:7b` (descarga ~4.7 GB).
+   - Antes de la demo, asegúrate de que Ollama esté abierto (o ejecuta `ollama serve`).
+   - Alternativa sin instalar nada: una clave gratuita de Gemini en **https://aistudio.google.com**
+     guardada en la variable de entorno `GEMINI_API_KEY`.
+   - Si no hay ningún LLM disponible, la demo lo avisa y sigue con la versión **SIN IA**.
 
 > 🔒 `clave.txt` es solo tuyo y nunca se sube a internet. No lo compartas.
 
 ---
 
 ## 🎥 La demostración: 3 dobles clic
+
+> ⭐ **Atajo: `DEMO-COMPLETA.bat`** hace todo en un solo doble clic: levanta el banco
+> de pruebas, muestra el ataque y recorre cada capa (SAST → triaje sin IA vs con LLM →
+> PoC → métricas → reporte). Pulsa **Enter** para avanzar cada paso.
 
 ### 👉 Doble clic 1 — Mostrar el fallo: `VER-EL-ATAQUE.bat`
 
@@ -45,12 +52,12 @@ Aparecerán dos respuestas:
 
 ### 👉 Doble clic 2 — Mostrar mi solución: `DEMO-CON-IA.bat`
 
-(Si no tienes clave, usa **`DEMO-SIN-IA.bat`**.)
+(Si no tienes Ollama ni clave, usa **`DEMO-SIN-IA.bat`**.)
 
 Verás cómo el sistema revisa cada hallazgo **uno por uno, en tiempo real**, así:
 ```
-[triaje IA] 3/9  ...secreto-embebido ...
-    -> veredicto: falso_positivo  (confianza 0.92, P3)
+[triaje LLM ollama:qwen2.5-coder:7b] 3/9  ...secreto-embebido ...
+    -> veredicto: verdadero_positivo  (confianza 0.90, P1)
 ```
 
 **Qué decir:**

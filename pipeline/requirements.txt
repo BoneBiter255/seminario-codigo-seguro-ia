@@ -1,3 +1,6 @@
 anthropic>=1.0.0
 pydantic>=2.7
 PyYAML>=6.0
+# Opcionales, solo si se usa ese proveedor de LLM:
+# google-genai>=1.0   (--proveedor gemini)
+# groq>=0.11          (--proveedor groq)
