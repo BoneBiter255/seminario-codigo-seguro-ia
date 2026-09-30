@@ -109,13 +109,19 @@ Sobre el banco de pruebas, comparando *SAST solo* contra el pipeline:
 |---|---|---|---|---|
 | SAST solo | 0.67 | 1.00 | 0.80 | 3 |
 | Pipeline + baseline sin IA | 1.00 | 0.83 | 0.91 | **0** |
-| Pipeline + LLM gratuito (Ollama `qwen2.5-coder:7b`) | _pendiente de medir_ | | | |
+| Pipeline + LLM local (Ollama `qwen2.5-coder:7b`) | 0.67 | 1.00 | 0.80 | 3 |
+| Pipeline + LLM en la nube (Gemini / Groq) | _pendiente de medir_ | | | |
 
 Explotabilidad confirmada por PoC: **3/3 (100 %)**.
 
 > El baseline sin IA pierde recall (0.83) porque descarta un verdadero positivo
 > (`java.secreto-embebido`) solo porque su regla está declarada como "ruidosa".
 > Es la limitación que el triaje con LLM debe corregir leyendo el código.
+
+> El modelo local de 7B marca los 9 hallazgos como reales: no descarta ningún
+> falso positivo y su razonamiento mezcla el defecto de la regla con el IDOR del
+> mismo archivo. Iguala al SAST solo (F1 0.80) pero no aporta filtrado; un modelo
+> pequeño no basta para este triaje. Medido en CPU: ~3 min para los 9 hallazgos.
 
 > El dataset es pequeño (un banco de pruebas de 9 hallazgos): estas cifras
 > **ilustran el método, no lo validan estadísticamente**. Ampliar el dataset es
