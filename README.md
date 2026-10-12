@@ -37,15 +37,51 @@ Ninguna capa por sí sola es de fiar, así que el pipeline las encadena y hace q
 
 ## El banco de pruebas
 
-Dos microservicios Spring Boot con un **IDOR cross-service** inyectado:
+Tres microservicios Spring Boot con un **IDOR cross-service** inyectado:
 `order-service` autentica al llamante pero nunca compara el propietario del
 pedido, y propaga la PII del tercero desde `user-service`. Ninguna herramienta
-que mire un solo servicio ve la cadena completa.
+que mire un solo servicio ve la cadena completa. `notification-service` aporta
+casos donde la decisión depende del contexto: reglas "ruidosas" que esta vez
+aciertan y reglas "precisas" que esta vez se equivocan.
 
-El mismo contrato HTTP está replicado en `target/mock/run_target.py` (solo Python)
-para que la verificación corra en cualquier máquina y en CI sin Maven ni Docker.
+Hay dos escenarios con el mismo código salvo el fix:
 
-## Cómo ejecutarlo
+| Escenario | Código | Verdad de terreno | Para qué |
+|---|---|---|---|
+| Vulnerable | `target/` | `dataset/ground-truth.yml` (19 hallazgos) | demostración principal |
+| Corregido (control) | `target-corregido/` | `dataset/ground-truth-corregido.yml` | escenario de control y validación del fix |
+
+El código Java no lleva comentarios que revelen la respuesta (nada de
+"VULNERABILIDAD (CWE-…)"): el LLM ve lo mismo que vería un revisor real. Las
+justificaciones de cada etiqueta viven en el dataset.
+
+El mismo contrato HTTP está replicado en `target/mock/run_target.py` (solo
+Python, modos `vulnerable` y `corregido`) para que la verificación corra en
+cualquier máquina y en CI sin Maven ni Docker.
+
+## Interfaz web (recomendado)
+
+Doble clic en **`ABRIR-REVIA.bat`** (o `python -m revia.web.servidor` con
+`PYTHONPATH=pipeline/src`). Levanta los dos bancos de pruebas y abre
+<http://127.0.0.1:8765> con cinco pestañas:
+
+1. **Arquitectura**: problema, hipótesis y diagrama con el componente de IA
+   resaltado; se anima mientras corre un análisis.
+2. **Escenarios de prueba**: las mismas peticiones contra el banco vulnerable y
+   el corregido (uso normal, acceso indebido, sin sesión), el tráfico que
+   reciben los bancos y el diff del fix.
+3. **Análisis en vivo**: corre el pipeline y muestra, por hallazgo, la entrada
+   exacta al modelo, su salida JSON, el tiempo, la PoC y el estado final.
+4. **Métricas**: criterios de éxito (`dataset/criterios.yml`) con umbral y
+   resultado, precisión/recall/F1 de SAST solo vs. sin IA vs. con IA, falsos
+   positivos, matriz de confusión, tiempos, decisión por hallazgo, validación
+   de fixes e historial de ejecuciones.
+5. **Reporte**: el reporte auditable de la ejecución, descargable.
+
+Las ejecuciones se guardan en `out/web/`. El guion del video está en
+[`docs/guion-video.md`](docs/guion-video.md).
+
+## Cómo ejecutarlo por línea de comandos
 
 Ya hay un entorno virtual en `.venv` con todo instalado. Desde la raíz del
 proyecto:
@@ -103,29 +139,36 @@ LLM aporta valor.
 
 ## Resultados del prototipo
 
-Sobre el banco de pruebas, comparando *SAST solo* contra el pipeline:
+Escenario vulnerable, 19 hallazgos etiquetados (10 reales, 9 ruido), modelos
+locales en una RTX 4060 de 8 GB, medidos el 2026-10-12 con la interfaz web:
 
-| Configuración | Precisión | Recall | F1 | Falsos positivos |
-|---|---|---|---|---|
-| SAST solo | 0.67 | 1.00 | 0.80 | 3 |
-| Pipeline + baseline sin IA | 1.00 | 0.83 | 0.91 | **0** |
-| Pipeline + LLM local (Ollama `qwen2.5-coder:7b`) | 0.67 | 1.00 | 0.80 | 3 |
-| Pipeline + LLM en la nube (Gemini / Groq) | _pendiente de medir_ | | | |
+| Configuración | Precisión | Recall | F1 | FP | Tiempo por hallazgo |
+|---|---|---|---|---|---|
+| SAST solo | 0.53 | 1.00 | 0.69 | 9 | — |
+| Pipeline + baseline sin IA | 0.60 | 0.60 | 0.60 | 4 | — |
+| Pipeline + `qwen2.5-coder:7b` | 0.80 | 0.80 | 0.80 | 2 | 10.5 s |
+| Pipeline + `qwen3:8b` (razonamiento activado) | 0.90 | 0.90 | **0.90** | 1 | 31.5 s |
+| Pipeline + `qwen3:8b` (razonamiento desactivado) | 0.83 | 0.50 | 0.63 | 1 | 11.9 s |
 
-Explotabilidad confirmada por PoC: **3/3 (100 %)**.
+- Explotables confirmados por PoC: **3/3** con ambos modelos con buen
+  desempeño, **0 falsas confirmaciones**.
+- Fixes validados: **100 %** (la PoC falla contra el código corregido y el uso
+  legítimo sigue funcionando).
+- Escenario de control (corregido): **0** confirmaciones.
 
-> El baseline sin IA pierde recall (0.83) porque descarta un verdadero positivo
-> (`java.secreto-embebido`) solo porque su regla está declarada como "ruidosa".
-> Es la limitación que el triaje con LLM debe corregir leyendo el código.
+Lectura:
 
-> El modelo local de 7B marca los 9 hallazgos como reales: no descarta ningún
-> falso positivo y su razonamiento mezcla el defecto de la regla con el IDOR del
-> mismo archivo. Iguala al SAST solo (F1 0.80) pero no aporta filtrado; un modelo
-> pequeño no basta para este triaje. Medido en CPU: ~3 min para los 9 hallazgos.
+> El baseline sin IA es peor que el SAST solo: decidir por la "fama" de la
+> regla falla justo donde el contexto importa (un `Random` que genera un token,
+> un IDOR sobre un catálogo público). Leer el código es lo que aporta la IA.
 
-> El dataset es pequeño (un banco de pruebas de 9 hallazgos): estas cifras
-> **ilustran el método, no lo validan estadísticamente**. Ampliar el dataset es
-> trabajo de la fase 2.
+> El 7B cumple F1 ≥ 0.80 pero no el recall ≥ 0.90: descarta un `Random` usado
+> para el token de restablecimiento y un SSRF. qwen3:8b con razonamiento cumple
+> ambos a cambio de triplicar el tiempo. Sin razonamiento, qwen3 descarta uno
+> de los IDOR reales y su PoC nunca se lanza (2/3).
+
+> El dataset es pequeño y lo construyó el equipo: estas cifras **ilustran el
+> método, no lo validan estadísticamente**.
 
 ## Pruebas
 
@@ -147,6 +190,9 @@ seminario-codigo-seguro-ia/
 │  │  │  ├─ deterministic.py # capa 1: motor de reglas + Semgrep
 │  │  │  ├─ triage.py        # capa 2: triaje con LLM (Ollama/Gemini/Groq/Claude)
 │  │  │  └─ verification.py  # capa 3: PoC contra el objetivo vivo
+│  │  ├─ escenarios.py       # vulnerable / corregido
+│  │  ├─ motor.py            # pipeline con eventos, métricas y validación del fix
+│  │  ├─ web/                # interfaz web (servidor.py + static/)
 │  │  ├─ evaluation/metrics.py
 │  │  ├─ report/render.py
 │  │  ├─ pipeline.py         # CLI que une las tres capas
@@ -156,8 +202,13 @@ seminario-codigo-seguro-ia/
 ├─ target/                   # banco de pruebas vulnerable
 │  ├─ order-service/         # microservicio Spring Boot (IDOR)
 │  ├─ user-service/          # microservicio Spring Boot (PII)
+│  ├─ notification-service/  # casos que dependen del contexto
 │  └─ mock/run_target.py     # réplica ejecutable solo-Python
-├─ dataset/ground-truth.yml  # verdad de terreno etiquetada
+├─ target-corregido/         # mismo código con el fix (escenario de control)
+├─ dataset/
+│  ├─ ground-truth.yml       # verdad de terreno etiquetada
+│  ├─ ground-truth-corregido.yml
+│  └─ criterios.yml          # criterios de éxito y umbrales
 ├─ docs/arquitectura.md
 └─ .github/workflows/pipeline.yml  # integración en CI
 ```
@@ -174,3 +225,14 @@ funcional). Lo pendiente, en orden:
 3. Ampliar el dataset con más CWE y con casos reales para dar valor estadístico
    a las métricas.
 4. Añadir *reachability* real en la capa de SCA.
+
+### Limitaciones conocidas
+
+- Si el triaje descarta como ruido un hallazgo explotable, la PoC no se lanza
+  y el hallazgo se pierde (visto con qwen3:8b sin razonamiento).
+- Cada plantilla de PoC solo respalda hallazgos del endpoint que prueba; el
+  resto de CWE queda como "probable, sin verificar".
+- La validación del fix usa el parche de referencia de `target-corregido/`, no
+  un parche generado por el modelo.
+- `target-adversarial/` (comentarios de inyección de prompt) existe pero no
+  está integrado a la interfaz ni a las métricas.

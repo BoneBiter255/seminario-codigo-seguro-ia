@@ -1,5 +1,10 @@
 # 🎬 Cómo mostrar mi proyecto (guía súper simple)
 
+> **Nuevo:** para el Corte 2 la demostración se hace con la interfaz web
+> (`ABRIR-REVIA.bat`). El guion minuto a minuto está en
+> [`guion-video.md`](guion-video.md). Esta guía describe los lanzadores de consola
+> anteriores, que siguen funcionando.
+
 > Esta guía es para ti. Sigue los pasos en orden. No necesitas saber programar.
 > Solo vas a **hacer doble clic en 3 archivos** y **leer lo que aparece**.
 
