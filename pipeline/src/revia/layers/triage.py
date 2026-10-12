@@ -149,6 +149,9 @@ class TriageLayer:
     modelo: str | None = None
     proveedor: str = "auto"
     usar_ia: bool = True
+    razonamiento: bool | None = None
+    """Solo Ollama: activa o desactiva el modo de razonamiento de los modelos que lo
+    tienen (qwen3, deepseek-r1...). None deja el comportamiento por defecto del modelo."""
     lineas_contexto: int = 60
     uso: UsoTokens = field(default_factory=UsoTokens)
     degradados: int = 0
@@ -280,6 +283,8 @@ Emite tu veredicto sobre el hallazgo {finding.id}."""
             "stream": False,
             "options": {"temperature": 0, "num_ctx": 8192},
         }
+        if self.razonamiento is not None:
+            payload["think"] = self.razonamiento
         req = urllib.request.Request(
             f"{OLLAMA_URL}/api/chat",
             data=json.dumps(payload).encode("utf-8"),

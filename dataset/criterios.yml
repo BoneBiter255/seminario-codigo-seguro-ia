@@ -1,0 +1,68 @@
+# Criterios de exito del prototipo.
+#
+# Cada criterio compara una metrica medida contra un umbral fijado ANTES de
+# medir. Responden la pregunta de investigacion: ¿puede un pipeline con
+# verificacion independiente reducir los falsos positivos y confirmar la
+# explotabilidad sin sacrificar cobertura?
+#
+#   metrica:    clave que calcula revia.motor (ver METRICAS_DISPONIBLES)
+#   operador:   ">=" o "<="
+#   umbral:     valor objetivo
+#   escenario:  en que escenario se mide
+
+criterios:
+  - id: f1
+    nombre: F1 del pipeline
+    metrica: pipeline_f1
+    operador: ">="
+    umbral: 0.80
+    escenario: vulnerable
+    porque: Equilibrio entre precision y cobertura sobre el dataset etiquetado.
+
+  - id: recall
+    nombre: Cobertura (recall)
+    metrica: pipeline_recall
+    operador: ">="
+    umbral: 0.90
+    escenario: vulnerable
+    porque: '"Sin sacrificar cobertura": el triaje no puede descartar vulnerabilidades reales.'
+
+  - id: reduccion_fp
+    nombre: Reducción de falsos positivos frente a SAST solo
+    metrica: reduccion_fp_pct
+    operador: ">="
+    umbral: 50
+    escenario: vulnerable
+    porque: Ataca la fatiga de alertas del SAST tradicional.
+
+  - id: explotabilidad
+    nombre: Vulnerabilidades explotables confirmadas por PoC
+    metrica: explotabilidad_pct
+    operador: ">="
+    umbral: 100
+    escenario: vulnerable
+    porque: Todo hallazgo explotable del dataset debe llegar con su prueba adjunta.
+
+  - id: falsas_confirmaciones
+    nombre: Falsas confirmaciones en el escenario de control
+    metrica: falsas_confirmaciones
+    operador: "<="
+    umbral: 0
+    escenario: corregido
+    porque: Si el codigo esta corregido, ninguna PoC puede afirmar lo contrario.
+
+  - id: tiempo_triaje
+    nombre: Tiempo medio de triaje con IA por hallazgo
+    metrica: triaje_medio_s
+    operador: "<="
+    umbral: 30
+    escenario: vulnerable
+    porque: Viable dentro del ciclo de revision de un pull request.
+
+  - id: fixes_validados
+    nombre: Fixes validados (la PoC falla tras el fix y el uso legítimo sigue funcionando)
+    metrica: fixes_validados_pct
+    operador: ">="
+    umbral: 100
+    escenario: vulnerable
+    porque: Un fix solo cuenta si cierra el ataque sin romper la funcionalidad.
