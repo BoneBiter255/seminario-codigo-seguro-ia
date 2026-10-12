@@ -23,12 +23,7 @@ public class OrderRepository {
         return ORDERS.values().stream().filter(o -> o.ownerId().equals(ownerId)).toList();
     }
 
-    /**
-     * VULNERABILIDAD (CWE-89): la consulta se arma concatenando entrada del usuario.
-     * En este banco de pruebas no hay motor SQL real, asi que el hallazgo es un
-     * verdadero positivo NO explotable en runtime: sirve para comprobar que la capa
-     * de verificacion distingue "defecto real" de "explotabilidad confirmada".
-     */
+    /** Consulta de busqueda por descripcion. */
     public String buildSearchQuery(String termino) {
         return "SELECT * FROM orders WHERE descripcion LIKE '%" + termino + "%'";
     }

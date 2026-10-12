@@ -10,9 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Cliente hacia user-service. Es la segunda mitad de la cadena cross-service:
- * order-service decide a que userId pedirle PII y user-service confia en esa
- * decision. Ninguna herramienta que analice un solo servicio ve la cadena completa.
+ * Cliente HTTP hacia user-service.
  */
 @Component
 public class UserClient {

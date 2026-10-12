@@ -7,14 +7,11 @@ import org.springframework.stereotype.Service;
 
 /**
  * Autenticacion simplificada por token opaco.
- *
- * Responde QUIEN eres (autenticacion). Deliberadamente NO responde a QUE
- * puedes acceder (autorizacion): esa omision es la que explota el IDOR.
  */
 @Service
 public class AuthService {
 
-    /** VULNERABILIDAD (CWE-798): secreto embebido en el codigo fuente. */
+    /** Credencial que order-service presenta a user-service. */
     private static final String INTERNAL_API_TOKEN = "s3cr3t-internal-token-2026";
 
     private static final Map<String, String> TOKEN_TO_USER = Map.of(
@@ -34,7 +31,7 @@ public class AuthService {
         return INTERNAL_API_TOKEN;
     }
 
-    /** VULNERABILIDAD (CWE-327): MD5 para huella de token. */
+    /** Huella corta del token para correlacionar sesiones. */
     public String fingerprint(String token) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");

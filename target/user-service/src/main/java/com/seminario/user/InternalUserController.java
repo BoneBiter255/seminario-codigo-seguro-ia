@@ -8,13 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Endpoint "interno" consumido por order-service.
- *
- * VULNERABILIDAD (CWE-639 / CWE-306, mitad de la cadena cross-service):
- * la unica barrera es la cabecera X-Internal-Call, que el propio llamante
- * controla. No hay identidad del usuario final ni verificacion de propiedad,
- * asi que quien logre que order-service invoque este endpoint con un id
- * arbitrario recibe la PII completa de ese usuario.
+ * Endpoint interno consumido por order-service para obtener el perfil de un
+ * usuario.
  */
 @RestController
 @RequestMapping("/internal/users")

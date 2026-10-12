@@ -19,7 +19,7 @@ public class OrderController {
 
     private static final Logger LOG = Logger.getLogger(OrderController.class.getName());
 
-    /** Identificador de correlacion para trazas. No es un valor de seguridad. */
+    /** Generador de ids de correlacion para las trazas de log. */
     private static final Random CORRELATION_IDS = new Random();
 
     private final OrderRepository orders;
@@ -33,16 +33,8 @@ public class OrderController {
     }
 
     /**
-     * VULNERABILIDAD PRINCIPAL (CWE-639, IDOR cross-service).
-     *
-     * El metodo autentica al llamante y luego usa {@code orderId} tal cual llega,
-     * sin comprobar nunca que {@code order.ownerId()} coincida con
-     * {@code callerId}. Peor aun: propaga el ownerId del pedido ajeno a
-     * user-service, que devuelve la PII completa de ese tercero.
-     *
-     * Ninguna regla sintactica ve el fallo: la falla es la AUSENCIA de una
-     * comparacion, y el impacto solo se materializa al cruzar el limite de
-     * servicio. Por eso hace falta un PoC que lo demuestre.
+     * Detalle de un pedido junto con el perfil de su propietario, que se
+     * consulta a user-service.
      */
     @GetMapping("/{orderId}")
     public ResponseEntity<Map<String, Object>> getOrder(@PathVariable String orderId,
@@ -67,7 +59,7 @@ public class OrderController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    /** Ruta correcta: filtra por el propietario autenticado. Sirve de contraste. */
+    /** Pedidos del usuario autenticado. */
     @GetMapping
     public ResponseEntity<List<Order>> listMyOrders(@RequestHeader(value = "Authorization", required = false) String authorization) {
         String callerId = auth.resolveUserId(authorization);
@@ -77,7 +69,7 @@ public class OrderController {
         return ResponseEntity.ok(orders.findByOwner(callerId));
     }
 
-    /** Ruta de busqueda que arma la consulta por concatenacion (ver OrderRepository). */
+    /** Busqueda de pedidos por texto libre. */
     @GetMapping("/search")
     public ResponseEntity<String> search(@RequestParam String termino,
                                          @RequestHeader(value = "Authorization", required = false) String authorization) {
