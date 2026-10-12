@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REVIA · Revisión de código seguro</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="barra">
+  <div class="marca">
+    <span class="logo" aria-hidden="true">◆</span>
+    <div>
+      <strong>REVIA</strong>
+      <span class="sub">Revisión de código seguro asistida por IA con verificación independiente</span>
+    </div>
+  </div>
+  <div class="indicadores" id="indicadores"></div>
+</header>
+
+<nav class="pestanas" role="tablist">
+  <button role="tab" data-tab="arquitectura" class="activa">1 · Arquitectura</button>
+  <button role="tab" data-tab="escenarios">2 · Escenarios de prueba</button>
+  <button role="tab" data-tab="analisis">3 · Análisis en vivo</button>
+  <button role="tab" data-tab="metricas">4 · Métricas</button>
+  <button role="tab" data-tab="reporte">5 · Reporte</button>
+</nav>
+
+<main>
+  <!-- ===================================================== ARQUITECTURA -->
+  <section id="tab-arquitectura" class="tab activa">
+    <div class="grid-2">
+      <article class="tarjeta">
+        <h2>Problema</h2>
+        <p>Los veredictos de seguridad que produce la IA no son verificables ni auditables. El SAST tradicional
+          sobre-reporta (fatiga de alertas) y la IA generativa alucina en ambas direcciones: inventa
+          vulnerabilidades y aprueba código inseguro.</p>
+        <h2>Hipótesis</h2>
+        <p>Un pipeline que combina reglas deterministas, triaje con un LLM y una <b>verificación independiente
+          por prueba de concepto</b> reduce los falsos positivos y confirma la explotabilidad
+          <b>sin sacrificar cobertura</b>.</p>
+      </article>
+      <article class="tarjeta">
+        <h2>Principio</h2>
+        <p class="cita">Ningún veredicto se emite sin evidencia independiente que lo respalde.</p>
+        <ul class="lista">
+          <li><b>La IA opina</b>: su salida es una <i>hipótesis</i> estructurada (JSON validado).</li>
+          <li><b>La PoC decide</b>: si confirma, el hallazgo asciende aunque la IA dudara; si refuta, cae aunque la IA estuviera segura.</li>
+          <li><b>El fix se valida</b>: la misma PoC debe fallar contra el código corregido y el uso legítimo debe seguir funcionando.</li>
+        </ul>
+      </article>
+    </div>
+
+    <article class="tarjeta">
+      <div class="cab-tarjeta">
+        <h2>Arquitectura y flujo de datos</h2>
+        <span class="leyenda-ia"><span class="punto-ia"></span> componente de Inteligencia Artificial</span>
+      </div>
+      <div class="diagrama-wrap">
+        <svg id="diagrama" viewBox="0 0 1100 330" role="img" aria-label="Diagrama de arquitectura del pipeline REVIA">
+          <defs>
+            <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="punta"/>
+            </marker>
+          </defs>
+          <!-- aristas -->
+          <g class="aristas">
+            <path d="M150,110 H200" marker-end="url(#flecha)"/>
+            <path d="M370,110 H420" marker-end="url(#flecha)"/>
+            <path d="M610,110 H660" marker-end="url(#flecha)"/>
+            <path d="M840,110 H890" marker-end="url(#flecha)"/>
+            <path d="M750,160 V215" marker-end="url(#flecha)"/>
+            <path d="M750,215 V160" marker-end="url(#flecha)" class="vuelta"/>
+            <path d="M840,250 H890" marker-end="url(#flecha)"/>
+            <path d="M985,160 V215" marker-end="url(#flecha)"/>
+            <path d="M285,160 C285,250 470,290 640,265" marker-end="url(#flecha)" class="punteada"/>
+          </g>
+          <g class="etiquetas-arista">
+            <text x="175" y="100">código</text>
+            <text x="395" y="100">Finding</text>
+            <text x="635" y="96">Hipótesis</text>
+            <text x="635" y="128">(JSON)</text>
+            <text x="865" y="100">Evidencia</text>
+            <text x="782" y="192">HTTP</text>
+            <text x="350" y="282">verdad de terreno (dataset etiquetado)</text>
+          </g>
+          <!-- nodos -->
+          <g class="nodo" data-nodo="codigo"><rect x="20" y="60" width="130" height="100" rx="12"/>
+            <text x="85" y="100" class="t">Código / PR</text><text x="85" y="122" class="s">3 microservicios</text><text x="85" y="140" class="s">Java · Spring</text></g>
+          <g class="nodo" data-nodo="c1"><rect x="200" y="60" width="170" height="100" rx="12"/>
+            <text x="285" y="92" class="t">1 · Determinista</text><text x="285" y="114" class="s">motor de reglas (SAST)</text><text x="285" y="132" class="s">reglas por ausencia</text><text x="285" y="150" class="s cuenta" id="n-c1"></text></g>
+          <g class="nodo ia" data-nodo="c2"><rect x="420" y="60" width="190" height="100" rx="12"/>
+            <text x="515" y="88" class="t">2 · Triaje con LLM</text><text x="515" y="110" class="s" id="n-modelo">modelo local (Ollama)</text><text x="515" y="128" class="s">lee el código · filtra FP</text><text x="515" y="148" class="s cuenta" id="n-c2"></text></g>
+          <g class="nodo" data-nodo="c3"><rect x="660" y="60" width="180" height="100" rx="12"/>
+            <text x="750" y="92" class="t">3 · Verificación</text><text x="750" y="114" class="s">PoC reproducible</text><text x="750" y="132" class="s">la evidencia manda</text><text x="750" y="150" class="s cuenta" id="n-c3"></text></g>
+          <g class="nodo" data-nodo="banco"><rect x="660" y="215" width="180" height="70" rx="12"/>
+            <text x="750" y="245" class="t">Banco de pruebas</text><text x="750" y="266" class="s">servicio en ejecución</text></g>
+          <g class="nodo" data-nodo="c4"><rect x="890" y="215" width="190" height="70" rx="12"/>
+            <text x="985" y="243" class="t">4 · Validación del fix</text><text x="985" y="264" class="s cuenta" id="n-c4">banco corregido + regresión</text></g>
+          <g class="nodo" data-nodo="reporte"><rect x="890" y="60" width="190" height="100" rx="12"/>
+            <text x="985" y="92" class="t">Reporte auditable</text><text x="985" y="114" class="s">métricas vs dataset</text><text x="985" y="132" class="s">→ revisión humana</text><text x="985" y="150" class="s cuenta" id="n-rep"></text></g>
+        </svg>
+      </div>
+      <div class="grid-3 detalle-capas">
+        <div><h3>Entrada de la IA</h3><p>El hallazgo (regla, CWE, ubicación), el mapa de archivos y ±60 líneas del código real, delimitadas como <i>dato no confiable</i>.</p></div>
+        <div><h3>Salida de la IA</h3><p>Un JSON validado: veredicto, confianza, razonamiento, impacto, estrategia de PoC, corrección sugerida y prioridad.</p></div>
+        <div><h3>Valor frente al SAST</h3><p>La regla ve un patrón; el modelo decide si en <i>este</i> código el valor lo controla un atacante o cumple una función de seguridad.</p></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ===================================================== ESCENARIOS -->
+  <section id="tab-escenarios" class="tab">
+    <article class="tarjeta">
+      <div class="cab-tarjeta">
+        <h2>Escenario normal vs. escenario vulnerable vs. control corregido</h2>
+        <button class="btn" id="btn-pruebas">Ejecutar todas las peticiones</button>
+      </div>
+      <p class="ayuda">Cada petición se envía a los dos bancos de pruebas en ejecución: el <b>vulnerable</b>
+        (código de <code>target/</code>) y el <b>corregido</b> (<code>target-corregido/</code>, mismo código con el fix).</p>
+      <div class="tabla-wrap"><table class="tabla" id="tabla-pruebas">
+        <thead><tr><th>Petición</th><th>Tipo</th><th>Esperado en un sistema seguro</th><th>Banco vulnerable</th><th>Banco corregido</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div id="detalle-prueba" class="detalle-prueba"></div>
+    </article>
+
+    <div class="grid-2">
+      <article class="tarjeta">
+        <h2>Tráfico recibido por los bancos</h2>
+        <p class="ayuda">Cada petición que llega a los servicios, incluidas las PoC que lanza la capa de verificación.</p>
+        <div class="tabla-wrap alto"><table class="tabla compacta" id="tabla-trafico">
+          <thead><tr><th>Hora</th><th>Banco</th><th>Petición</th><th>Credencial</th><th>HTTP</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </article>
+      <article class="tarjeta">
+        <h2>El fix aplicado (vulnerable → corregido)</h2>
+        <div id="diff"></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===================================================== ANÁLISIS -->
+  <section id="tab-analisis" class="tab">
+    <article class="tarjeta config">
+      <label>Escenario
+        <select id="sel-escenario"></select></label>
+      <label>Triaje
+        <select id="sel-modo">
+          <option value="llm">Con IA (LLM)</option>
+          <option value="baseline">Sin IA (heurística de control)</option>
+          <option value="sast">Solo SAST (sin triaje)</option>
+        </select></label>
+      <label>Proveedor
+        <select id="sel-proveedor"></select></label>
+      <label>Modelo
+        <select id="sel-modelo"></select></label>
+      <label title="Solo Ollama: modelos con modo de razonamiento (qwen3, deepseek-r1)">Razonamiento
+        <select id="sel-razonamiento">
+          <option value="">por defecto del modelo</option>
+          <option value="no">desactivado (más rápido)</option>
+          <option value="si">activado</option>
+        </select></label>
+      <button class="btn primario" id="btn-ejecutar">▶ Ejecutar análisis</button>
+    </article>
+
+    <div id="avisos"></div>
+
+    <div class="etapas" id="etapas">
+      <div class="etapa" data-capa="1"><span class="num">1</span><div><b>Determinista</b><small data-info>—</small></div></div>
+      <div class="etapa ia" data-capa="2"><span class="num">2</span><div><b>Triaje con IA</b><small data-info>—</small></div></div>
+      <div class="etapa" data-capa="3"><span class="num">3</span><div><b>Verificación (PoC)</b><small data-info>—</small></div></div>
+      <div class="etapa" data-capa="4"><span class="num">4</span><div><b>Validación del fix</b><small data-info>—</small></div></div>
+      <div class="etapa" data-capa="5"><span class="num">✓</span><div><b>Métricas y reporte</b><small data-info>—</small></div></div>
+    </div>
+
+    <div class="grid-analisis">
+      <article class="tarjeta">
+        <div class="cab-tarjeta"><h2>Hallazgos</h2><span class="ayuda" id="resumen-hallazgos"></span></div>
+        <div class="tabla-wrap"><table class="tabla" id="tabla-hallazgos">
+          <thead><tr><th>Sev.</th><th>Regla</th><th>Ubicación</th><th>Veredicto IA</th><th>Conf.</th><th>Tiempo</th><th>PoC</th><th>Estado final</th></tr></thead>
+          <tbody><tr class="vacio"><td colspan="8">Elige la configuración y pulsa «Ejecutar análisis».</td></tr></tbody>
+        </table></div>
+      </article>
+      <aside class="tarjeta" id="panel-detalle">
+        <h2>Detalle del hallazgo</h2>
+        <p class="ayuda">Selecciona un hallazgo para ver qué recibió la IA, qué respondió y qué demostró la PoC.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================================================== MÉTRICAS -->
+  <section id="tab-metricas" class="tab">
+    <article class="tarjeta config">
+      <label>Ejecución
+        <select id="sel-ejecucion"></select></label>
+      <span class="ayuda" id="info-ejecucion"></span>
+    </article>
+    <div id="metricas-contenido"><p class="ayuda tarjeta">Aún no hay ejecuciones. Corre un análisis en la pestaña 3.</p></div>
+  </section>
+
+  <!-- ===================================================== REPORTE -->
+  <section id="tab-reporte" class="tab">
+    <article class="tarjeta config">
+      <span class="ayuda" id="info-reporte">Reporte de la ejecución seleccionada en Métricas.</span>
+      <a class="btn" id="btn-descargar" href="#" download>Descargar .md</a>
+    </article>
+    <article class="tarjeta md" id="reporte-md"></article>
+  </section>
+</main>
+
+<footer class="pie">
+  Prototipo del Seminario de Seguridad de la Información · Los bancos de pruebas corren solo en <code>127.0.0.1</code>.
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>
