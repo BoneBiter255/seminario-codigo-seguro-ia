@@ -7,8 +7,8 @@ MISMO conjunto de hallazgos:
 
   * "SAST solo": todo hallazgo de la capa determinista cuenta como positivo. Es
     el comportamiento sin triaje ni verificacion.
-  * "Pipeline": positivo = lo que sobrevive al triaje (no descartado como falso
-    positivo). Es el sistema propuesto.
+  * "Pipeline": positivo = lo que llega a revision humana (ni descartado como
+    falso positivo por el triaje ni refutado por la PoC). Es el sistema propuesto.
 
 Sobre cada configuracion se calculan precision, recall y F1 contra las etiquetas
 humanas, ademas de la tasa de falsos positivos antes/despues y el porcentaje de
@@ -98,6 +98,10 @@ class Evaluacion:
     sast_solo: Confusion = field(default_factory=Confusion)
     pipeline: Confusion = field(default_factory=Confusion)
     confirmados_por_poc: int = 0
+    confirmados_explotables: int = 0
+    """Confirmados por PoC que la verdad de terreno marca como explotables."""
+    falsas_confirmaciones: int = 0
+    """Confirmados por PoC que la verdad de terreno dice que NO son explotables."""
     tp_explotables_totales: int = 0
     sin_etiqueta: list[str] = field(default_factory=list)
 
@@ -109,7 +113,7 @@ class Evaluacion:
     def pct_explotabilidad_confirmada(self) -> float:
         if not self.tp_explotables_totales:
             return 0.0
-        return 100.0 * self.confirmados_por_poc / self.tp_explotables_totales
+        return 100.0 * self.confirmados_explotables / self.tp_explotables_totales
 
 
 def evaluar(revisados: list[ReviewedFinding], gt: GroundTruth) -> Evaluacion:
@@ -131,8 +135,9 @@ def evaluar(revisados: list[ReviewedFinding], gt: GroundTruth) -> Evaluacion:
         else:
             ev.sast_solo.fp += 1
 
-        # --- Pipeline: positivo = no descartado por el triaje ---
-        emitido_pipeline = rf.estado != FinalStatus.DESCARTADO_FALSO_POSITIVO
+        # --- Pipeline: positivo = lo que llega a revision humana (ni descartado
+        # por el triaje ni refutado por la PoC) ---
+        emitido_pipeline = rf.reportable
         if emitido_pipeline and real_positivo:
             ev.pipeline.tp += 1
         elif emitido_pipeline and not real_positivo:
@@ -145,6 +150,10 @@ def evaluar(revisados: list[ReviewedFinding], gt: GroundTruth) -> Evaluacion:
         # --- Explotabilidad confirmada ---
         if rf.estado == FinalStatus.CONFIRMADO_EXPLOTABLE:
             ev.confirmados_por_poc += 1
+            if real_positivo and etiqueta.explotable:
+                ev.confirmados_explotables += 1
+            else:
+                ev.falsas_confirmaciones += 1
 
     return ev
 
@@ -166,8 +175,9 @@ def formatear(ev: Evaluacion) -> str:
         "-" * 60,
         f"  Reduccion de falsos positivos: {ev.reduccion_fp} "
         f"({ev.sast_solo.fp} -> {ev.pipeline.fp})",
-        f"  Explotabilidad confirmada por PoC: {ev.confirmados_por_poc}/"
+        f"  Explotabilidad confirmada por PoC: {ev.confirmados_explotables}/"
         f"{ev.tp_explotables_totales} ({ev.pct_explotabilidad_confirmada:.0f}%)",
+        f"  Falsas confirmaciones (PoC sobre algo no explotable): {ev.falsas_confirmaciones}",
     ]
     if ev.sin_etiqueta:
         lineas.append(f"  Hallazgos sin etiqueta en el dataset: {len(ev.sin_etiqueta)}")

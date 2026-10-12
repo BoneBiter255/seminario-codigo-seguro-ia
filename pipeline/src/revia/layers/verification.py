@@ -148,11 +148,15 @@ def _poc_confianza_cabecera(objetivo: ObjetivoEjecucion) -> VerificationResult:
     )
 
 
-# Mapa CWE -> plantilla de PoC. Solo lo que se puede demostrar de forma segura y
-# reproducible tiene entrada aqui; el resto queda como PROBABLE_NO_VERIFICADO.
+# Mapa (CWE, archivo) -> plantilla de PoC. Cada plantilla prueba UN endpoint
+# concreto del banco, asi que solo puede respaldar hallazgos de ese endpoint:
+# usarla para cualquier hallazgo del mismo CWE confirmaria cosas que no probo
+# (por ejemplo, un IDOR en otro controlador). Lo que no tiene entrada queda
+# como PROBABLE_NO_VERIFICADO.
 PLANTILLAS = {
-    "CWE-639": _poc_idor,
-    "CWE-290": _poc_confianza_cabecera,
+    ("CWE-639", "OrderController.java"): _poc_idor,
+    ("CWE-639", "InternalUserController.java"): _poc_confianza_cabecera,
+    ("CWE-290", "InternalUserController.java"): _poc_confianza_cabecera,
 }
 
 
@@ -161,12 +165,12 @@ class VerificationLayer:
     objetivo: ObjetivoEjecucion | None
 
     def verify(self, finding: Finding, triaje: TriageVerdict) -> VerificationResult:
-        plantilla = PLANTILLAS.get(finding.cwe)
+        plantilla = PLANTILLAS.get((finding.cwe, finding.archivo.rsplit("/", 1)[-1]))
         if plantilla is None:
             return VerificationResult(
                 intentada=False,
                 explotabilidad_confirmada=False,
-                motivo_omision=f"No hay plantilla de PoC para {finding.cwe} en el prototipo.",
+                motivo_omision=f"No hay plantilla de PoC para {finding.cwe} en {finding.archivo} en el prototipo.",
             )
         if not triaje.verificable_dinamicamente:
             return VerificationResult(
